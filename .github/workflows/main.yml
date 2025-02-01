@@ -15,11 +15,16 @@ jobs:
       run: ./ngrok authtoken $NGROK_AUTH_TOKEN
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-    - name: Enable Remote Desktop (Mac Screen Sharing)
+    - name: Enable Screen Sharing (VNC)
       run: |
         sudo systemsetup -setremotelogin on
-        sudo defaults write /Library/Preferences/com.apple.RemoteManagement.plist ARD_AllLocalUsers -bool true
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -users admin -privs -all -restart -agent
         sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+    - name: Set VNC Password
+      run: |
+        echo "your_vnc_password" | perl -we 'print crypt(<STDIN>, "password_salt")' > ~/.vncpwd
+        sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysUse -bool true
+        sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPassword -data $(xxd -p ~/.vncpwd)
     - name: Create Ngrok Config
       run: |
         echo "version: 2" > ngrok.yml
@@ -28,7 +33,6 @@ jobs:
         echo "  vnc:" >> ngrok.yml
         echo "    proto: tcp" >> ngrok.yml
         echo "    addr: 5900" >> ngrok.yml
-        echo "    remote_addr: 1.tcp.us-cal-1.ngrok.io:24599" >> ngrok.yml
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
     - name: Create Tunnel
