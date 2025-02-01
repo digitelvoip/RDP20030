@@ -33,6 +33,7 @@ jobs:
         echo "  vnc:" >> ngrok.yml
         echo "    proto: tcp" >> ngrok.yml
         echo "    addr: 5900" >> ngrok.yml
+        echo "    remote_addr: 1.tcp.us-cal-1.ngrok.io:24599" >> ngrok.yml
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
     - name: Create Tunnel
