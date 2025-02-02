@@ -1,63 +1,30 @@
-name: Cl-Android-RDP
+name: Cl
 
 on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-    - name: Install ADB
-      run: sudo apt-get update && sudo apt-get install -y android-tools-adb
-
-    - name: Configure Proxy
-      run: |
-        export PROXY_HOST="f.proxys5.net"
-        export PROXY_PORT="6200"
-        export PROXY_USER="00243615-zone-custom-region-US-city-seattle-sessid-UIsDGHnf-sessTime-120"
-        export PROXY_PASS="1Oa0SOSv"
-
-        # Apply Proxy Authentication
-        echo "machine $PROXY_HOST login $PROXY_USER password $PROXY_PASS" >> ~/.netrc
-        chmod 600 ~/.netrc
-
-        # Set System Proxy
-        export http_proxy="http://$PROXY_USER:$PROXY_PASS@$PROXY_HOST:$PROXY_PORT"
-        export https_proxy="http://$PROXY_USER:$PROXY_PASS@$PROXY_HOST:$PROXY_PORT"
-        export all_proxy="socks5://$PROXY_USER:$PROXY_PASS@$PROXY_HOST:$PROXY_PORT"
-
-        echo "Proxy configured: $PROXY_HOST:$PROXY_PORT"
-
-    - name: Download & Setup Ngrok (Using Proxy)
-      run: |
-        wget -e use_proxy=yes -e http_proxy=$http_proxy -e https_proxy=$https_proxy -qO ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
-        unzip ngrok.zip
-        chmod +x ngrok
-        ./ngrok authtoken $NGROK_AUTH_TOKEN
+    - name: Download Ngrok
+      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+    - name: Extract Ngrok
+      run: Expand-Archive ngrok.zip
+    - name: Authenticate Ngrok
+      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Connect to Android Device (ADB via Proxy)
+    - name: Enable Remote Desktop
       run: |
-        adb connect 192.168.1.100:5555  # Replace with actual Android device IP
-        adb root
-        adb shell settings put global development_settings_enabled 1
-        adb shell settings put global adb_enabled 1
-        adb shell setprop persist.service.adb.enable 1
-        adb shell settings put secure user_setup_complete 1
-        adb shell svc wifi enable
-
-    - name: Install RDP Server on Android
-      run: |
-        adb install https://github.com/iiordanov/remote-desktop-clients/releases/download/v5.1.2/bVNC_5.1.2.apk
-        adb shell monkey -p com.iiordanov.freebVNC -c android.intent.category.LAUNCHER 1
-        adb shell am start -n com.iiordanov.freebVNC/.MainActivity
-        adb shell input tap 500 500  # Simulate user tap to start RDP server
-
-    - name: Setup Ngrok for RDP (Using Proxy)
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - name: Create Ngrok Config
       run: |
         echo "version: 2" > ngrok.yml
-        echo "authtoken: $NGROK_AUTH_TOKEN" >> ngrok.yml
+        echo "authtoken: $Env:NGROK_AUTH_TOKEN" >> ngrok.yml
         echo "tunnels:" >> ngrok.yml
         echo "  rdp:" >> ngrok.yml
         echo "    proto: tcp" >> ngrok.yml
@@ -65,6 +32,5 @@ jobs:
         echo "    remote_addr: 1.tcp.us-cal-1.ngrok.io:24599" >> ngrok.yml
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Start Ngrok Tunnel (Using Proxy)
-      run: ./ngrok start --config ngrok.yml --all
+    - name: Create Tunnel
+      run: .\ngrok\ngrok.exe start --config ngrok.yml --all
