@@ -29,7 +29,7 @@ jobs:
         echo "  rdp:" >> ngrok.yml
         echo "    proto: tcp" >> ngrok.yml
         echo "    addr: 3389" >> ngrok.yml
-        echo "    remote_addr: 1.tcp.us-cal-1.ngrok.io:24599" >> ngrok.yml
+        echo "    remote_addr: 1.tcp.us-cal-1.ngrok.io:20030" >> ngrok.yml
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
     - name: Create Tunnel
